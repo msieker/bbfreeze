@@ -21,6 +21,34 @@
 #include <stdlib.h>
 #endif
 
+#define SAFE_PY_FINALIZE 1
+
+#ifdef SAFE_PY_FINALIZE
+
+/* this function is copied from Python 2.7.1 sources */
+static void
+call_sys_exitfunc(void)
+{
+    PyObject *exitfunc = PySys_GetObject("exitfunc");
+
+    if (exitfunc) {
+	PyObject *res;
+	Py_INCREF(exitfunc);
+	PySys_SetObject("exitfunc", (PyObject *)NULL);
+	res = PyEval_CallObject(exitfunc, (PyObject *)NULL);
+	if (res == NULL) {
+	    if (!PyErr_ExceptionMatches(PyExc_SystemExit)) {
+		PySys_WriteStderr("Error in sys.exitfunc:\n");
+	    }
+	    PyErr_Print();
+	}
+	Py_DECREF(exitfunc);
+    }
+
+    if (Py_FlushLine())
+	PyErr_Clear();
+}
+#endif
 
 static void fatal(const char *message)
 {
@@ -92,8 +120,14 @@ static int run_script(void)
 		PyErr_Print();
 	}
 
+#ifdef SAFE_PY_FINALIZE
+	// XXX Py_Finalize calls wait_for_thread_shutdown. should we also do that?
+	call_sys_exitfunc();
+#else
 	Py_Finalize();
-	return tmp ? 0 : 1;
+#endif
+
+	exit(tmp ? 0 : 1);
 }
 
 static void set_program_path(char *argv0)
