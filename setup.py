@@ -160,7 +160,7 @@ def main():
     
     # --- libs
     cfglibs = sysconfig.get_config_var("LIBS") or ""
-    libs = []
+    libs = ['ssl','crypto','z']
     extra_link_args = []
     for part in cfglibs.split():
         if part[:2] == '-l':
